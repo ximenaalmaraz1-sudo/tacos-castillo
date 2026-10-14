@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+<!DOCTYPE 
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Tacos Castillo - Sistema Integral</title>
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no">
+  <title>Tacos Castillo - POS Compacto</title>
 
-  <!-- SDK Firebase -->
+  <!-- SDK Firebase Modular -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp } 
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } 
       from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -26,153 +26,167 @@
     window.fsCollection = collection;
     window.fsAddDoc = addDoc;
     window.fsOnSnapshot = onSnapshot;
-    window.fsQuery = query;
-    window.fsWhere = where;
-    window.fsTimestamp = serverTimestamp;
+    window.fsDoc = doc;
+    window.fsDeleteDoc = deleteDoc;
   </script>
 
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; display: flex; height: 100vh; background: #f8fafc; overflow: hidden; }
+    body { margin: 0; background: #f1f5f9; height: 100vh; overflow: hidden; font-size: 13px; }
 
     /* VISTAS */
     .vista-app { display: none; width: 100vw; height: 100vh; flex-direction: column; }
     .vista-app.activa { display: flex; }
 
-    /* TOP BAR */
+    /* BARRA SUPERIOR COMPACTA */
     .top-bar {
-      height: 60px; background: #0f172a; color: white; display: flex;
-      align-items: center; padding: 0 14px; gap: 10px; z-index: 100;
+      height: 48px; background: #0f172a; color: white; display: flex;
+      align-items: center; padding: 0 10px; gap: 8px; flex-shrink: 0;
     }
-    .logo { color: #f97316; font-weight: 900; font-size: 16px; }
+    .logo { color: #f97316; font-weight: 900; font-size: 14px; white-space: nowrap; }
     .select-sucursal {
       background: #1e293b; color: #f8fafc; border: 1px solid #475569;
-      padding: 6px 10px; border-radius: 8px; font-weight: bold; font-size: 13px;
+      padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px;
     }
-    .btn-top {
-      background: #334155; color: white; border: none; padding: 8px 12px;
-      border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer;
+    .btn-mesa {
+      background: #334155; color: white; border: none; padding: 5px 9px;
+      border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer;
     }
-    .btn-top.mesa-activa { background: #dc2626; }
-    .btn-top.con-cuenta { border: 2px solid #22c55e; }
+    .btn-mesa.activa { background: #dc2626; }
+    .btn-mesa.con-cuenta { border: 2px solid #22c55e; }
 
-    /* LAYOUT POS */
-    .cuerpo-pos { display: flex; flex: 1; overflow: hidden; }
-    .col-menu { flex: 1.8; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
-    
-    .barra-servicio { display: flex; gap: 8px; margin-bottom: 8px; }
-    .btn-servicio {
-      flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;
-      background: white; font-weight: bold; font-size: 13px; cursor: pointer;
+    .btn-nav {
+      background: #475569; color: white; border: none; padding: 5px 10px;
+      border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer;
     }
-    .btn-servicio.activo { background: #0284c7; color: white; border-color: #0284c7; }
 
-    .barra-personas { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; overflow-x: auto; }
+    /* POS CUERPO */
+    .cuerpo-pos { display: flex; flex: 1; overflow: hidden; padding: 6px; gap: 6px; }
+
+    /* COLUMNA IZQUIERDA: MENÚ */
+    .col-menu {
+      flex: 1.6; background: white; border-radius: 8px; border: 1px solid #e2e8f0;
+      display: flex; flex-direction: column; padding: 8px; overflow: hidden;
+    }
+    .barra-servicio { display: flex; gap: 6px; margin-bottom: 6px; }
+    .btn-serv {
+      flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px;
+      background: #f8fafc; font-weight: bold; font-size: 11px; cursor: pointer;
+    }
+    .btn-serv.activo { background: #0284c7; color: white; border-color: #0284c7; }
+
+    .barra-personas { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; overflow-x: auto; }
     .btn-p {
-      padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
-      background: white; font-size: 12px; font-weight: bold; cursor: pointer;
+      padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;
+      background: #f8fafc; font-size: 11px; font-weight: bold; cursor: pointer;
     }
-    .btn-p.activa { background: #475569; color: white; }
+    .btn-p.activa { background: #334155; color: white; }
 
-    .pestanas-cat { display: flex; gap: 6px; margin-bottom: 10px; }
+    .pestanas-cat { display: flex; gap: 4px; margin-bottom: 6px; }
     .btn-cat {
-      background: #e2e8f0; border: none; padding: 10px 14px; border-radius: 8px;
-      font-size: 13px; font-weight: bold; cursor: pointer; color: #334155;
+      background: #e2e8f0; border: none; padding: 6px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: bold; cursor: pointer; color: #334155;
     }
     .btn-cat.activa { background: #dc2626; color: white; }
 
-    .grid-articulos { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .grid-articulos {
+      flex: 1; overflow-y: auto; display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;
+    }
     .card-articulo {
-      background: white; border: 1px solid #e2e8f0; border-radius: 10px;
-      padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+      background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 6px; display: flex; flex-direction: column; justify-content: space-between;
     }
     .btn-cant {
-      width: 36px; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
-      background: #f8fafc; font-size: 18px; font-weight: bold; cursor: pointer;
+      width: 28px; height: 28px; border: 1px solid #cbd5e1; border-radius: 6px;
+      background: white; font-size: 16px; font-weight: bold; cursor: pointer;
     }
 
-    /* COLUMNA TICKET */
+    /* COLUMNA DERECHA: TICKET */
     .col-ticket {
-      flex: 1.2; background: white; border-left: 2px solid #e2e8f0;
-      display: flex; flex-direction: column; padding: 12px;
+      flex: 1.4; background: white; border-radius: 8px; border: 1px solid #e2e8f0;
+      display: flex; flex-direction: column; padding: 8px; overflow: hidden;
     }
     .caja-pendiente {
-      background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;
-      padding: 10px; max-height: 220px; overflow-y: auto; margin-bottom: 8px;
+      background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;
+      padding: 6px; max-height: 180px; overflow-y: auto; margin-bottom: 6px;
     }
-    .fila-pendiente { border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
-    .verduras-opciones { display: flex; gap: 4px; margin-top: 4px; }
-    .btn-v-opt {
-      background: white; border: 1px solid #cbd5e1; border-radius: 4px;
-      padding: 4px 6px; font-size: 11px; font-weight: bold; cursor: pointer;
+    .fila-pend { border-bottom: 1px solid #e2e8f0; padding: 4px 0; }
+    .verduras-box { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; }
+    .btn-v {
+      background: white; border: 1px solid #cbd5e1; border-radius: 3px;
+      padding: 2px 5px; font-size: 10px; font-weight: bold; cursor: pointer;
     }
-    .btn-v-opt.sel { background: #16a34a; color: white; border-color: #16a34a; }
+    .btn-v.sel { background: #16a34a; color: white; border-color: #16a34a; }
 
-    .caja-acumulada { flex: 1; overflow-y: auto; border-top: 2px solid #f1f5f9; padding-top: 6px; }
+    .caja-acumulada { flex: 1; overflow-y: auto; border-top: 1px solid #e2e8f0; padding: 4px 0; }
 
     /* MODAL COBRO */
     #modalCobro {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
       align-items: center; justify-content: center; z-index: 500;
     }
-    .modal-box { background: white; width: 90%; max-width: 420px; border-radius: 14px; padding: 20px; }
+    .modal-box { background: white; width: 90%; max-width: 360px; border-radius: 10px; padding: 14px; }
     .btn-pago {
-      flex: 1; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px;
-      background: #f8fafc; font-weight: bold; cursor: pointer; text-align: center;
+      flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;
+      background: #f8fafc; font-weight: bold; font-size: 12px; cursor: pointer; text-align: center;
     }
     .btn-pago.activo { border-color: #16a34a; background: #dcfce7; color: #166534; }
 
-    /* VISTA TV COCINA */
-    .grid-tv { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; padding: 16px; overflow-y: auto; }
+    /* COCINA TV */
+    .grid-tv {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px; padding: 12px; overflow-y: auto; flex: 1;
+    }
     .card-comanda-tv {
-      background: white; border-radius: 12px; border-left: 8px solid #ea580c;
-      padding: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      background: white; border-radius: 8px; border-left: 6px solid #ea580c;
+      padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column;
     }
 
-    /* VISTA DUEÑO */
-    .grid-dueno { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 16px; }
-    .card-kpi { background: white; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; }
+    /* DUEÑO */
+    .grid-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; padding: 10px; }
+    .card-kpi { background: white; border-radius: 8px; padding: 10px; border: 1px solid #e2e8f0; }
   </style>
 </head>
 <body>
 
-  <!-- ==================== VISTA 1: POS MESERAS ==================== -->
+  <!-- ==================== POS ==================== -->
   <div id="vistaPOS" class="vista-app activa">
     <div class="top-bar">
       <span class="logo">🌮 CASTILLO</span>
       <select id="sucursalPOS" class="select-sucursal" onchange="cambiarSucursalPOS()">
-        <option value="Progreso">Sucursal Progreso</option>
-        <option value="Tula Centro">Sucursal Tula Centro</option>
-        <option value="UTT">Sucursal UTT</option>
+        <option value="Progreso">Progreso</option>
+        <option value="Tula Centro">Tula Centro</option>
+        <option value="UTT">UTT</option>
       </select>
 
-      <div style="display:flex; gap: 4px;">
-        <button class="btn-top mesa-activa" onclick="cambiarMesa(1, this)">M1</button>
-        <button class="btn-top" onclick="cambiarMesa(2, this)">M2</button>
-        <button class="btn-top" onclick="cambiarMesa(3, this)">M3</button>
-        <button class="btn-top" onclick="cambiarMesa(4, this)">M4</button>
-        <button class="btn-top" onclick="cambiarMesa(5, this)">M5</button>
-        <button class="btn-top" onclick="cambiarMesa(6, this)">M6</button>
+      <div style="display:flex; gap: 3px;">
+        <button class="btn-mesa activa" onclick="cambiarMesa(1, this)">M1</button>
+        <button class="btn-mesa" onclick="cambiarMesa(2, this)">M2</button>
+        <button class="btn-mesa" onclick="cambiarMesa(3, this)">M3</button>
+        <button class="btn-mesa" onclick="cambiarMesa(4, this)">M4</button>
+        <button class="btn-mesa" onclick="cambiarMesa(5, this)">M5</button>
+        <button class="btn-mesa" onclick="cambiarMesa(6, this)">M6</button>
       </div>
 
-      <div style="margin-left: auto; display: flex; gap: 6px;">
-        <button class="btn-top" onclick="verVista('vistaTV')">📺 TV</button>
-        <button class="btn-top" onclick="pedirClaveDueno()">📊 Dueño</button>
+      <div style="margin-left: auto; display: flex; gap: 5px;">
+        <button class="btn-nav" onclick="abrirTV()">📺 Cocina TV</button>
+        <button class="btn-nav" onclick="pedirClaveDueno()">📊 Reportes</button>
       </div>
     </div>
 
     <div class="cuerpo-pos">
-      <!-- Menú Izquierda -->
+      <!-- Menú -->
       <div class="col-menu">
         <div class="barra-servicio">
-          <button class="btn-servicio activo" id="btnComer" onclick="setServicio('Comer aquí')">🍽️ Comer aquí</button>
-          <button class="btn-servicio" id="btnLlevar" onclick="setServicio('Para llevar')">🛍️ Para llevar</button>
+          <button class="btn-serv activo" id="btnComer" onclick="setServicio('Comer aquí')">🍽️ Comer aquí</button>
+          <button class="btn-serv" id="btnLlevar" onclick="setServicio('Para llevar')">🛍️ Para llevar</button>
         </div>
 
         <div class="barra-personas">
-          <span style="font-size: 12px; font-weight: bold; color: #64748b;">Persona:</span>
-          <div id="cajaBtnPersonas" style="display: flex; gap: 4px;"></div>
-          <button onclick="sumarPersona()" style="padding: 4px 8px; border-radius: 6px; font-weight: bold;">+ P</button>
+          <span style="font-size: 11px; font-weight: bold; color: #64748b;">Comensal:</span>
+          <div id="cajaBtnPersonas" style="display: flex; gap: 3px;"></div>
+          <button onclick="sumarPersona()" style="padding: 3px 6px; border-radius: 4px; font-weight: bold;">+P</button>
         </div>
 
         <div class="pestanas-cat">
@@ -185,45 +199,48 @@
         <div class="grid-articulos" id="listaArticulos"></div>
       </div>
 
-      <!-- Ticket Derecha -->
+      <!-- Ticket -->
       <div class="col-ticket">
-        <h4 style="margin: 0 0 6px 0;">Comanda Pendiente (Mesa <span id="lblMesaNum">1</span>)</h4>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+          <b style="font-size: 12px;">Comanda Pendiente (Mesa <span id="lblMesaNum">1</span>)</b>
+          <span style="font-size: 11px; color: #64748b;" id="lblSucursalActual">Progreso</span>
+        </div>
         
         <div class="caja-pendiente" id="cajaPendiente">
-          <div style="color: #94a3b8; font-size: 12px;">Agrega productos y después elige verdura.</div>
+          <div style="color: #94a3b8; font-size: 11px;">Agrega platillos y elige la verdura abajo.</div>
         </div>
 
-        <button onclick="enviarComandaCocina()" style="background: #ea580c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">👨‍🍳 Mandar a TV Cocina</button>
+        <button onclick="enviarComandaCocina()" style="background: #ea580c; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; margin-bottom: 6px;">👨‍🍳 Mandar a TV Cocina</button>
 
-        <h5 style="margin: 4px 0; color: #475569;">Cuenta acumulada:</h5>
+        <b style="font-size: 11px; color: #475569; margin-bottom: 2px;">Cuenta acumulada:</b>
         <div class="caja-acumulada" id="cajaAcumulada"></div>
 
-        <div style="border-top: 2px solid #e2e8f0; padding-top: 8px;">
-          <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 8px;">
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 6px;">
+          <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; margin-bottom: 6px;">
             <span>Total:</span>
             <span>$<span id="lblTotalMesa">0</span></span>
           </div>
-          <button onclick="abrirCobro()" style="width: 100%; background: #16a34a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">💳 Cobrar Mesa</button>
+          <button onclick="abrirCobro()" style="width: 100%; background: #16a34a; color: white; border: none; padding: 9px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer;">💳 Cobrar Mesa</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ==================== VISTA 2: TV COCINA ==================== -->
+  <!-- ==================== TV COCINA ==================== -->
   <div id="vistaTV" class="vista-app">
     <div class="top-bar">
-      <span class="logo">👨‍🍳 COCINA EN VIVO</span>
-      <select id="sucursalTV" class="select-sucursal" onchange="filtrarTV()">
+      <span class="logo">👨‍🍳 COMANDAS EN VIVO</span>
+      <select id="sucursalTV" class="select-sucursal" onchange="renderizarComandasTV()">
         <option value="Progreso">Progreso</option>
         <option value="Tula Centro">Tula Centro</option>
         <option value="UTT">UTT</option>
       </select>
-      <button class="btn-top" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Volver al POS</button>
+      <button class="btn-nav" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Volver al POS</button>
     </div>
     <div class="grid-tv" id="tvComandas"></div>
   </div>
 
-  <!-- ==================== VISTA 3: PORTAL JEFE ==================== -->
+  <!-- ==================== REPORTES DUEÑO ==================== -->
   <div id="vistaDueno" class="vista-app">
     <div class="top-bar">
       <span class="logo">📊 REPORTE DE VENTAS</span>
@@ -233,61 +250,61 @@
         <option value="Tula Centro">Tula Centro</option>
         <option value="UTT">UTT</option>
       </select>
-      <button class="btn-top" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Salir</button>
+      <button class="btn-nav" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Salir</button>
     </div>
     
-    <div class="grid-dueno">
+    <div class="grid-kpis">
       <div class="card-kpi">
-        <div style="color: #64748b; font-size: 13px;">Venta Total Hoy</div>
-        <div style="font-size: 26px; font-weight: 900; color: #16a34a;" id="kpiTotalVenta">$0</div>
+        <div style="color: #64748b; font-size: 11px;">Total Venta</div>
+        <div style="font-size: 18px; font-weight: 900; color: #16a34a;" id="kpiTotalVenta">$0</div>
       </div>
       <div class="card-kpi">
-        <div style="color: #64748b; font-size: 13px;">💵 Efectivo</div>
-        <div style="font-size: 20px; font-weight: bold;" id="kpiEfectivo">$0</div>
+        <div style="color: #64748b; font-size: 11px;">Efectivo</div>
+        <div style="font-size: 15px; font-weight: bold;" id="kpiEfectivo">$0</div>
       </div>
       <div class="card-kpi">
-        <div style="color: #64748b; font-size: 13px;">📱 Transferencias</div>
-        <div style="font-size: 20px; font-weight: bold;" id="kpiTransfer">$0</div>
+        <div style="color: #64748b; font-size: 11px;">Transferencia</div>
+        <div style="font-size: 15px; font-weight: bold;" id="kpiTransfer">$0</div>
       </div>
       <div class="card-kpi">
-        <div style="color: #64748b; font-size: 13px;">🌮 Total Tacos</div>
-        <div style="font-size: 20px; font-weight: bold;" id="kpiTotalTacos">0</div>
+        <div style="color: #64748b; font-size: 11px;">Total Tacos</div>
+        <div style="font-size: 15px; font-weight: bold;" id="kpiTotalTacos">0</div>
       </div>
       <div class="card-kpi">
-        <div style="color: #64748b; font-size: 13px;">🥤 Total Bebidas</div>
-        <div style="font-size: 20px; font-weight: bold;" id="kpiTotalBebidas">0</div>
+        <div style="color: #64748b; font-size: 11px;">Total Bebidas</div>
+        <div style="font-size: 15px; font-weight: bold;" id="kpiTotalBebidas">0</div>
       </div>
     </div>
 
-    <div style="padding: 0 16px; flex: 1; overflow-y: auto;">
-      <h4>Desglose de Ventas Registradas</h4>
-      <div id="listaTicketsDueno" style="display:flex; flex-direction: column; gap: 8px;"></div>
+    <div style="padding: 6px 10px; flex: 1; overflow-y: auto;">
+      <h4 style="margin: 4px 0 8px 0; font-size: 12px;">Historial de Cobros</h4>
+      <div id="listaTicketsDueno" style="display:flex; flex-direction: column; gap: 6px;"></div>
     </div>
   </div>
 
-  <!-- MODAL COBRO CON CAMBIO -->
+  <!-- MODAL COBRO -->
   <div id="modalCobro">
     <div class="modal-box">
-      <h3 style="margin-top: 0;">Cobrar Mesa <span id="mdlMesa"></span></h3>
-      <div style="font-size: 22px; font-weight: bold; margin-bottom: 10px;">Total: $<span id="mdlTotal">0</span></div>
+      <h3 style="margin: 0 0 8px 0; font-size: 15px;">Cobrar Mesa <span id="mdlMesa"></span></h3>
+      <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">Total: $<span id="mdlTotal">0</span></div>
 
-      <div style="display:flex; gap: 8px; margin-bottom: 12px;">
+      <div style="display:flex; gap: 6px; margin-bottom: 8px;">
         <div class="btn-pago activo" id="btnPagoEf" onclick="setMetodo('Efectivo')">💵 Efectivo</div>
         <div class="btn-pago" id="btnPagoTr" onclick="setMetodo('Transferencia')">📱 Transferencia</div>
       </div>
 
       <div id="bloqueEf">
-        <label style="font-size: 12px; font-weight: bold;">Paga con:</label>
-        <input type="number" id="inpPagaCon" style="width:100%; padding:10px; font-size:18px; border:1px solid #cbd5e1; border-radius:8px; margin: 4px 0 10px 0;" oninput="recalcularCambio()">
-        <div style="display:flex; justify-content:space-between; font-size:18px; font-weight:bold; background:#f1f5f9; padding:10px; border-radius:8px;">
+        <label style="font-size: 11px; font-weight: bold;">Paga con:</label>
+        <input type="number" id="inpPagaCon" style="width:100%; padding:8px; font-size:16px; border:1px solid #cbd5e1; border-radius:6px; margin: 3px 0 8px 0;" oninput="recalcularCambio()">
+        <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; background:#f1f5f9; padding:8px; border-radius:6px;">
           <span>Cambio:</span>
           <span style="color:#dc2626;">$<span id="lblCambioMdl">0</span></span>
         </div>
       </div>
 
-      <div style="display: flex; gap: 8px; margin-top: 14px;">
-        <button onclick="cerrarCobro()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">Cancelar</button>
-        <button onclick="finalizarTicket()" style="flex: 2; padding: 12px; border-radius: 8px; border: none; background: #16a34a; color: white; font-weight: bold;">🧾 Guardar e Imprimir</button>
+      <div style="display: flex; gap: 6px; margin-top: 10px;">
+        <button onclick="cerrarCobro()" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">Cancelar</button>
+        <button onclick="finalizarTicket()" style="flex: 2; padding: 8px; border-radius: 6px; border: none; background: #16a34a; color: white; font-weight: bold;">🧾 Finalizar</button>
       </div>
     </div>
   </div>
@@ -298,6 +315,7 @@
     let catSel = 'tacos';
     let personasMesa = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3 };
     let metodoSel = 'Efectivo';
+    let comandasEnVivo = [];
     let ventasCargadas = [];
 
     let mesas = {
@@ -311,16 +329,16 @@
 
     const carnes = ['Pastor', 'Suadero', 'Chamorro', 'Costilla', 'Longaniza', 'Pollo', 'Bistec'];
     const catalogo = {
-      tacos: carnes.map(c => ({ nombre: 'Taco ' + c, precio: 16, esComida: true, esTaco: true })),
-      tortas: carnes.map(c => ({ nombre: 'Torta ' + c, precio: 85, esComida: true, esTaco: false })),
-      gringas: carnes.map(c => ({ nombre: 'Gringa ' + c, precio: 85, esComida: true, esTaco: false })),
+      tacos: carnes.map(c => ({ nombre: 'Taco ' + c, precio: 16, esComida: true })),
+      tortas: carnes.map(c => ({ nombre: 'Torta ' + c, precio: 85, esComida: true })),
+      gringas: carnes.map(c => ({ nombre: 'Gringa ' + c, precio: 85, esComida: true })),
       bebidas: [
-        { nombre: 'Coca-Cola', precio: 30, esComida: false, esBebida: true },
-        { nombre: 'Jarritos', precio: 30, esComida: false, esBebida: true },
-        { nombre: 'Boing', precio: 30, esComida: false, esBebida: true },
-        { nombre: 'Agua Mineral', precio: 30, esComida: false, esBebida: true },
-        { nombre: 'Agua Día 1/2 L', precio: 30, esComida: false, esBebida: true },
-        { nombre: 'Agua Día 1 L', precio: 50, esComida: false, esBebida: true }
+        { nombre: 'Coca-Cola', precio: 30, esComida: false },
+        { nombre: 'Jarritos', precio: 30, esComida: false },
+        { nombre: 'Boing', precio: 30, esComida: false },
+        { nombre: 'Agua Mineral', precio: 30, esComida: false },
+        { nombre: 'Agua Día 1/2 L', precio: 30, esComida: false },
+        { nombre: 'Agua Día 1 L', precio: 50, esComida: false }
       ]
     };
 
@@ -329,8 +347,21 @@
       document.getElementById(id).classList.add('activa');
     }
 
+    function abrirTV() {
+      // Sincronizar sucursal de la TV con la que se está usando
+      const suc = document.getElementById('sucursalPOS').value;
+      document.getElementById('sucursalTV').value = suc;
+      renderizarComandasTV();
+      verVista('vistaTV');
+    }
+
+    function cambiarSucursalPOS() {
+      const suc = document.getElementById('sucursalPOS').value;
+      document.getElementById('lblSucursalActual').innerText = suc;
+    }
+
     function pedirClaveDueno() {
-      const pin = prompt('Introduce el PIN de Administrador:');
+      const pin = prompt('PIN de Administrador:');
       if (pin === '1234') {
         verVista('vistaDueno');
         calcularReporteDueno();
@@ -342,10 +373,8 @@
     function cambiarMesa(num, btn) {
       mesaSel = num;
       personaSel = 1;
-      document.querySelectorAll('.top-bar .btn-top').forEach(b => {
-        if(b.innerText.startsWith('M')) b.classList.remove('mesa-activa');
-      });
-      btn.classList.add('mesa-activa');
+      document.querySelectorAll('.btn-mesa').forEach(b => b.classList.remove('activa'));
+      btn.classList.add('activa');
       document.getElementById('lblMesaNum').innerText = num;
       setServicio(mesas[num].servicio);
       renderPersonas();
@@ -397,12 +426,12 @@
         cont.innerHTML += `
           <div class="card-articulo">
             <div>
-              <div style="font-weight: bold; font-size: 15px;">${item.nombre}</div>
-              <div style="color: #16a34a; font-weight: bold;">$${item.precio}</div>
+              <div style="font-weight: bold; font-size: 12px;">${item.nombre}</div>
+              <div style="color: #16a34a; font-weight: bold; font-size: 11px;">$${item.precio}</div>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
               <button class="btn-cant" onclick="sumarItem('${item.nombre}', ${item.precio}, ${item.esComida}, -1)">−</button>
-              <span style="font-weight: bold; font-size: 16px; min-width: 20px; text-align: center;">${count}</span>
+              <b style="font-size: 13px;">${count}</b>
               <button class="btn-cant" onclick="sumarItem('${item.nombre}', ${item.precio}, ${item.esComida}, 1)">+</button>
             </div>
           </div>
@@ -436,11 +465,10 @@
     function renderizarTodo() {
       renderCatalogo();
 
-      // Pendientes con verdura debajo
       const pendBox = document.getElementById('cajaPendiente');
       const items = mesas[mesaSel].pendiente;
       if (items.length === 0) {
-        pendBox.innerHTML = '<div style="color: #94a3b8; font-size: 12px;">Agrega productos y después elige verdura.</div>';
+        pendBox.innerHTML = '<div style="color: #94a3b8; font-size: 11px;">Agrega platillos y elige la verdura abajo.</div>';
       } else {
         pendBox.innerHTML = '';
         items.forEach((p, idx) => {
@@ -448,16 +476,16 @@
           if (p.esComida) {
             const opts = ['Con todo', 'Solo cilantro', 'Solo cebolla', 'Sin verdura'];
             vHtml = `
-              <div class="verduras-opciones">
+              <div class="verduras-box">
                 ${opts.map(o => `
-                  <button class="btn-v-opt ${p.verdura === o ? 'sel' : ''}" onclick="setVerduraItem(${idx}, '${o}')">${o}</button>
+                  <button class="btn-v ${p.verdura === o ? 'sel' : ''}" onclick="setVerduraItem(${idx}, '${o}')">${o}</button>
                 `).join('')}
               </div>
             `;
           }
           pendBox.innerHTML += `
-            <div class="fila-pendiente">
-              <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px;">
+            <div class="fila-pend">
+              <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px;">
                 <span>P${p.persona}: ${p.cantidad}x ${p.nombre}</span>
                 <span>$${p.precio * p.cantidad}</span>
               </div>
@@ -467,7 +495,6 @@
         });
       }
 
-      // Historial
       const histBox = document.getElementById('cajaAcumulada');
       histBox.innerHTML = '';
       let total = 0;
@@ -475,7 +502,7 @@
         let sub = p.precio * p.cantidad;
         total += sub;
         histBox.innerHTML += `
-          <div style="display:flex; justify-content:space-between; font-size:13px; padding:3px 0;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; padding:2px 0;">
             <span>${p.cantidad}x ${p.nombre} [P${p.persona}] ${p.verdura ? `(${p.verdura})` : ''}</span>
             <span>$${sub}</span>
           </div>
@@ -484,38 +511,34 @@
 
       document.getElementById('lblTotalMesa').innerText = total;
 
-      document.querySelectorAll('.top-bar .btn-top').forEach(btn => {
-        if (btn.innerText.startsWith('M')) {
-          let num = parseInt(btn.innerText.replace('M', ''));
-          if (mesas[num].acumulado.length > 0) btn.classList.add('con-cuenta');
-          else btn.classList.remove('con-cuenta');
-        }
+      document.querySelectorAll('.btn-mesa').forEach(btn => {
+        let num = parseInt(btn.innerText.replace('M', ''));
+        if (mesas[num].acumulado.length > 0) btn.classList.add('con-cuenta');
+        else btn.classList.remove('con-cuenta');
       });
     }
 
-    // MANDAR A COCINA (NUBE FIREBASE)
+    // MANDAR A COCINA (NUBE FIREBASE CON SUCURSAL EXACTA)
     async function enviarComandaCocina() {
       const items = mesas[mesaSel].pendiente;
       if (items.length === 0) return alert('No hay artículos pendientes para enviar.');
 
       const sucursal = document.getElementById('sucursalPOS').value;
 
-      // Guardar en Firestore para la TV
       if (window.db) {
         try {
           await window.fsAddDoc(window.fsCollection(window.db, "comandas_cocina"), {
-            sucursal,
+            sucursal: sucursal.trim(),
             mesa: mesaSel,
             servicio: mesas[mesaSel].servicio,
-            items: items,
-            fecha: new Date().toISOString()
+            items: JSON.parse(JSON.stringify(items)),
+            fecha: new Date().toLocaleTimeString()
           });
         } catch(e) {
           console.error("Error nube TV", e);
         }
       }
 
-      // Pasar a la cuenta acumulada
       items.forEach(p => {
         let exist = mesas[mesaSel].acumulado.find(a => 
           a.nombre === p.nombre && a.persona === p.persona && a.verdura === p.verdura
@@ -527,6 +550,17 @@
       mesas[mesaSel].pendiente = [];
       alert(`¡Comanda enviada a TV Cocina de ${sucursal}!`);
       renderizarTodo();
+    }
+
+    // BORRAR ORDEN EN COCINA (CUANDO SE DESPACHA)
+    async function despacharComanda(docId) {
+      if (window.db && docId) {
+        try {
+          await window.fsDeleteDoc(window.fsDoc(window.db, "comandas_cocina", docId));
+        } catch(e) {
+          console.error("Error borrando comanda", e);
+        }
+      }
     }
 
     // COBRO
@@ -570,10 +604,9 @@
         cambio = pagaCon - total;
       }
 
-      const sucursal = document.getElementById('sucursalPOS').value;
+      const sucursal = document.getElementById('sucursalPOS').value.trim();
       const items = [...mesas[mesaSel].acumulado];
 
-      // Contadores para el reporte del jefe
       let totalTacos = 0;
       let totalBebidas = 0;
       items.forEach(i => {
@@ -583,7 +616,6 @@
         }
       });
 
-      // Guardar venta final en Firestore (Para el Dueño)
       if (window.db) {
         try {
           await window.fsAddDoc(window.fsCollection(window.db, "ventas"), {
@@ -597,7 +629,6 @@
             totalTacos,
             totalBebidas,
             items,
-            fecha: new Date().toLocaleDateString('es-MX'),
             hora: new Date().toLocaleTimeString()
           });
         } catch(e) {
@@ -605,40 +636,49 @@
         }
       }
 
-      // IMPRIMIR TICKET
-      let ticket = `================================\n        TACOS CASTILLO          \n================================\n`;
-      ticket += `SUCURSAL: ${sucursal.toUpperCase()}\n`;
-      ticket += `SERVICIO: ${mesas[mesaSel].servicio}\n`;
-      ticket += `MESA: ${mesaSel} | HORA: ${new Date().toLocaleTimeString()}\n`;
-      ticket += `--------------------------------\n`;
-      items.forEach(i => {
-        ticket += `${i.cantidad}x ${i.nombre} [P${i.persona}]\n`;
-        if (i.verdura) ticket += `   ↳ ${i.verdura}\n`;
-        ticket += `   Subtotal: $${i.precio * i.cantidad}\n`;
-      });
-      ticket += `--------------------------------\n`;
-      ticket += `TOTAL:              $${total}\n`;
-      ticket += `PAGO:               ${metodoSel.toUpperCase()}\n`;
-      if (metodoSel === 'Efectivo') {
-        ticket += `PAGA CON:           $${pagaCon}\n`;
-        ticket += `CAMBIO:             $${cambio}\n`;
-      }
-      ticket += `================================\n¡GRACIAS POR SU PREFERENCIA!`;
-      alert(ticket);
+      alert(`Cobro finalizado con éxito.\nTotal: $${total}\nPago: ${metodoSel}`);
 
-      // Limpiar mesa
       mesas[mesaSel].acumulado = [];
       mesas[mesaSel].pendiente = [];
       cerrarCobro();
       renderizarTodo();
     }
 
-    // MONITOR TV
-    function filtrarTV() {
-      // Filtrado visual instantáneo
+    // RENDERIZADO ESTRICTO DE LA TV (FILTRADO POR SUCURSAL)
+    function renderizarComandasTV() {
+      const tv = document.getElementById('tvComandas');
+      const sucFiltro = document.getElementById('sucursalTV').value.trim();
+      tv.innerHTML = '';
+
+      const filtradas = comandasEnVivo.filter(c => c.sucursal === sucFiltro);
+
+      if (filtradas.length === 0) {
+        tv.innerHTML = `<div style="color: #64748b; font-size: 14px; padding: 20px;">No hay comandas pendientes para ${sucFiltro}.</div>`;
+        return;
+      }
+
+      filtradas.forEach(c => {
+        let htmlItems = c.items.map(i => `
+          <div style="margin-bottom: 6px;">
+            <b style="font-size: 14px;">${i.cantidad}x ${i.nombre}</b> <span style="font-size: 11px; color:#475569;">[P${i.persona}]</span>
+            ${i.verdura ? `<div style="color:#16a34a; font-weight:bold; font-size: 12px; margin-left: 6px;">↳ ${i.verdura}</div>` : ''}
+          </div>
+        `).join('');
+
+        tv.innerHTML += `
+          <div class="card-comanda-tv">
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">
+              <b>Mesa ${c.mesa} (${c.servicio})</b>
+              <span style="font-size:11px; color:#ea580c; font-weight:bold;">${c.fecha}</span>
+            </div>
+            <div style="flex: 1;">${htmlItems}</div>
+            <button onclick="despacharComanda('${c.id}')" style="background: #16a34a; color: white; border: none; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 8px;">✓ Despachada / Lista</button>
+          </div>
+        `;
+      });
     }
 
-    // INICIAR ESCUCHA EN TIEMPO REAL CON FIREBASE
+    // SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE
     window.addEventListener('load', () => {
       renderPersonas();
       renderCatalogo();
@@ -647,30 +687,16 @@
         if (window.db) {
           clearInterval(checkInterval);
 
-          // Escuchar comandas de cocina en vivo
+          // Escuchar comandas
           window.fsOnSnapshot(window.fsCollection(window.db, "comandas_cocina"), (snap) => {
-            const tv = document.getElementById('tvComandas');
-            const sucFiltro = document.getElementById('sucursalTV').value;
-            tv.innerHTML = '';
-            
-            snap.forEach(doc => {
-              const d = doc.data();
-              if (d.sucursal === sucFiltro) {
-                let htmlItems = d.items.map(i => `<div><b>${i.cantidad}x ${i.nombre}</b> [P${i.persona}] <br><span style="color:#16a34a">${i.verdura || ''}</span></div>`).join('');
-                tv.innerHTML += `
-                  <div class="card-comanda-tv">
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px;">
-                      <b>Mesa ${d.mesa} (${d.servicio})</b>
-                      <span style="font-size:12px; color:#64748b;">${d.sucursal}</span>
-                    </div>
-                    ${htmlItems}
-                  </div>
-                `;
-              }
+            comandasEnVivo = [];
+            snap.forEach(docSnap => {
+              comandasEnVivo.push({ id: docSnap.id, ...docSnap.data() });
             });
+            renderizarComandasTV();
           });
 
-          // Escuchar ventas para el Dueño
+          // Escuchar ventas para reportes
           window.fsOnSnapshot(window.fsCollection(window.db, "ventas"), (snap) => {
             ventasCargadas = [];
             snap.forEach(doc => ventasCargadas.push(doc.data()));
@@ -681,15 +707,10 @@
     });
 
     function calcularReporteDueno() {
-      const suc = document.getElementById('sucursalDueno').value;
+      const suc = document.getElementById('sucursalDueno').value.trim();
       const filtradas = suc === 'TODAS' ? ventasCargadas : ventasCargadas.filter(v => v.sucursal === suc);
 
-      let totalVenta = 0;
-      let totalEf = 0;
-      let totalTr = 0;
-      let totalTacos = 0;
-      let totalBeb = 0;
-
+      let totalVenta = 0, totalEf = 0, totalTr = 0, totalTacos = 0, totalBeb = 0;
       const lista = document.getElementById('listaTicketsDueno');
       lista.innerHTML = '';
 
@@ -701,12 +722,12 @@
         totalBeb += v.totalBebidas || 0;
 
         lista.innerHTML += `
-          <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; justify-content:space-between;">
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px; display:flex; justify-content:space-between; align-items:center;">
             <div>
-              <b>${v.sucursal} - Mesa ${v.mesa} (${v.servicio})</b>
-              <div style="font-size:12px; color:#64748b;">${v.hora} | ${v.metodoPago} | ${v.totalTacos} tacos | ${v.totalBebidas} refrescos</div>
+              <b style="font-size:12px;">${v.sucursal} - Mesa ${v.mesa} (${v.servicio})</b>
+              <div style="font-size:11px; color:#64748b;">${v.hora} | ${v.metodoPago} | ${v.totalTacos} tacos | ${v.totalBebidas} refrescos</div>
             </div>
-            <div style="font-size:16px; font-weight:bold; color:#16a34a;">$${v.total}</div>
+            <div style="font-size:14px; font-weight:bold; color:#16a34a;">$${v.total}</div>
           </div>
         `;
       });
