@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Tacos Castillo - Sistema Integral</title>
+
+  <!-- SDK Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp } 
+      from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCwmYh0lPVCTUWl1Ne7W9JkTaXd50AebXc",
+      authDomain: "tacos-castillo.firebaseapp.com",
+      projectId: "tacos-castillo",
+      storageBucket: "tacos-castillo.firebasestorage.app",
+      messagingSenderId: "138373090282",
+      appId: "1:138373090282:web:b83e88ee99ee3d61958093"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window.db = db;
+    window.fsCollection = collection;
+    window.fsAddDoc = addDoc;
+    window.fsOnSnapshot = onSnapshot;
+    window.fsQuery = query;
+    window.fsWhere = where;
+    window.fsTimestamp = serverTimestamp;
+  </script>
+
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; display: flex; height: 100vh; background: #f8fafc; overflow: hidden; }
+
+    /* VISTAS */
+    .vista-app { display: none; width: 100vw; height: 100vh; flex-direction: column; }
+    .vista-app.activa { display: flex; }
+
+    /* TOP BAR */
+    .top-bar {
+      height: 60px; background: #0f172a; color: white; display: flex;
+      align-items: center; padding: 0 14px; gap: 10px; z-index: 100;
+    }
+    .logo { color: #f97316; font-weight: 900; font-size: 16px; }
+    .select-sucursal {
+      background: #1e293b; color: #f8fafc; border: 1px solid #475569;
+      padding: 6px 10px; border-radius: 8px; font-weight: bold; font-size: 13px;
+    }
+    .btn-top {
+      background: #334155; color: white; border: none; padding: 8px 12px;
+      border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer;
+    }
+    .btn-top.mesa-activa { background: #dc2626; }
+    .btn-top.con-cuenta { border: 2px solid #22c55e; }
+
+    /* LAYOUT POS */
+    .cuerpo-pos { display: flex; flex: 1; overflow: hidden; }
+    .col-menu { flex: 1.8; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
+    
+    .barra-servicio { display: flex; gap: 8px; margin-bottom: 8px; }
+    .btn-servicio {
+      flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      background: white; font-weight: bold; font-size: 13px; cursor: pointer;
+    }
+    .btn-servicio.activo { background: #0284c7; color: white; border-color: #0284c7; }
+
+    .barra-personas { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; overflow-x: auto; }
+    .btn-p {
+      padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+      background: white; font-size: 12px; font-weight: bold; cursor: pointer;
+    }
+    .btn-p.activa { background: #475569; color: white; }
+
+    .pestanas-cat { display: flex; gap: 6px; margin-bottom: 10px; }
+    .btn-cat {
+      background: #e2e8f0; border: none; padding: 10px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: bold; cursor: pointer; color: #334155;
+    }
+    .btn-cat.activa { background: #dc2626; color: white; }
+
+    .grid-articulos { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .card-articulo {
+      background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .btn-cant {
+      width: 36px; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+      background: #f8fafc; font-size: 18px; font-weight: bold; cursor: pointer;
+    }
+
+    /* COLUMNA TICKET */
+    .col-ticket {
+      flex: 1.2; background: white; border-left: 2px solid #e2e8f0;
+      display: flex; flex-direction: column; padding: 12px;
+    }
+    .caja-pendiente {
+      background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;
+      padding: 10px; max-height: 220px; overflow-y: auto; margin-bottom: 8px;
+    }
+    .fila-pendiente { border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
+    .verduras-opciones { display: flex; gap: 4px; margin-top: 4px; }
+    .btn-v-opt {
+      background: white; border: 1px solid #cbd5e1; border-radius: 4px;
+      padding: 4px 6px; font-size: 11px; font-weight: bold; cursor: pointer;
+    }
+    .btn-v-opt.sel { background: #16a34a; color: white; border-color: #16a34a; }
+
+    .caja-acumulada { flex: 1; overflow-y: auto; border-top: 2px solid #f1f5f9; padding-top: 6px; }
+
+    /* MODAL COBRO */
+    #modalCobro {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      align-items: center; justify-content: center; z-index: 500;
+    }
+    .modal-box { background: white; width: 90%; max-width: 420px; border-radius: 14px; padding: 20px; }
+    .btn-pago {
+      flex: 1; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px;
+      background: #f8fafc; font-weight: bold; cursor: pointer; text-align: center;
+    }
+    .btn-pago.activo { border-color: #16a34a; background: #dcfce7; color: #166534; }
+
+    /* VISTA TV COCINA */
+    .grid-tv { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; padding: 16px; overflow-y: auto; }
+    .card-comanda-tv {
+      background: white; border-radius: 12px; border-left: 8px solid #ea580c;
+      padding: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    /* VISTA DUEÑO */
+    .grid-dueno { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 16px; }
+    .card-kpi { background: white; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== VISTA 1: POS MESERAS ==================== -->
+  <div id="vistaPOS" class="vista-app activa">
+    <div class="top-bar">
+      <span class="logo">🌮 CASTILLO</span>
+      <select id="sucursalPOS" class="select-sucursal" onchange="cambiarSucursalPOS()">
+        <option value="Progreso">Sucursal Progreso</option>
+        <option value="Tula Centro">Sucursal Tula Centro</option>
+        <option value="UTT">Sucursal UTT</option>
+      </select>
+
+      <div style="display:flex; gap: 4px;">
+        <button class="btn-top mesa-activa" onclick="cambiarMesa(1, this)">M1</button>
+        <button class="btn-top" onclick="cambiarMesa(2, this)">M2</button>
+        <button class="btn-top" onclick="cambiarMesa(3, this)">M3</button>
+        <button class="btn-top" onclick="cambiarMesa(4, this)">M4</button>
+        <button class="btn-top" onclick="cambiarMesa(5, this)">M5</button>
+        <button class="btn-top" onclick="cambiarMesa(6, this)">M6</button>
+      </div>
+
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <button class="btn-top" onclick="verVista('vistaTV')">📺 TV</button>
+        <button class="btn-top" onclick="pedirClaveDueno()">📊 Dueño</button>
+      </div>
+    </div>
+
+    <div class="cuerpo-pos">
+      <!-- Menú Izquierda -->
+      <div class="col-menu">
+        <div class="barra-servicio">
+          <button class="btn-servicio activo" id="btnComer" onclick="setServicio('Comer aquí')">🍽️ Comer aquí</button>
+          <button class="btn-servicio" id="btnLlevar" onclick="setServicio('Para llevar')">🛍️ Para llevar</button>
+        </div>
+
+        <div class="barra-personas">
+          <span style="font-size: 12px; font-weight: bold; color: #64748b;">Persona:</span>
+          <div id="cajaBtnPersonas" style="display: flex; gap: 4px;"></div>
+          <button onclick="sumarPersona()" style="padding: 4px 8px; border-radius: 6px; font-weight: bold;">+ P</button>
+        </div>
+
+        <div class="pestanas-cat">
+          <button class="btn-cat activa" onclick="setCat('tacos', this)">Tacos ($16)</button>
+          <button class="btn-cat" onclick="setCat('tortas', this)">Tortas ($85)</button>
+          <button class="btn-cat" onclick="setCat('gringas', this)">Gringas ($85)</button>
+          <button class="btn-cat" onclick="setCat('bebidas', this)">Bebidas</button>
+        </div>
+
+        <div class="grid-articulos" id="listaArticulos"></div>
+      </div>
+
+      <!-- Ticket Derecha -->
+      <div class="col-ticket">
+        <h4 style="margin: 0 0 6px 0;">Comanda Pendiente (Mesa <span id="lblMesaNum">1</span>)</h4>
+        
+        <div class="caja-pendiente" id="cajaPendiente">
+          <div style="color: #94a3b8; font-size: 12px;">Agrega productos y después elige verdura.</div>
+        </div>
+
+        <button onclick="enviarComandaCocina()" style="background: #ea580c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">👨‍🍳 Mandar a TV Cocina</button>
+
+        <h5 style="margin: 4px 0; color: #475569;">Cuenta acumulada:</h5>
+        <div class="caja-acumulada" id="cajaAcumulada"></div>
+
+        <div style="border-top: 2px solid #e2e8f0; padding-top: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 8px;">
+            <span>Total:</span>
+            <span>$<span id="lblTotalMesa">0</span></span>
+          </div>
+          <button onclick="abrirCobro()" style="width: 100%; background: #16a34a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">💳 Cobrar Mesa</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA 2: TV COCINA ==================== -->
+  <div id="vistaTV" class="vista-app">
+    <div class="top-bar">
+      <span class="logo">👨‍🍳 COCINA EN VIVO</span>
+      <select id="sucursalTV" class="select-sucursal" onchange="filtrarTV()">
+        <option value="Progreso">Progreso</option>
+        <option value="Tula Centro">Tula Centro</option>
+        <option value="UTT">UTT</option>
+      </select>
+      <button class="btn-top" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Volver al POS</button>
+    </div>
+    <div class="grid-tv" id="tvComandas"></div>
+  </div>
+
+  <!-- ==================== VISTA 3: PORTAL JEFE ==================== -->
+  <div id="vistaDueno" class="vista-app">
+    <div class="top-bar">
+      <span class="logo">📊 REPORTE DE VENTAS</span>
+      <select id="sucursalDueno" class="select-sucursal" onchange="calcularReporteDueno()">
+        <option value="TODAS">Todas las Sucursales</option>
+        <option value="Progreso">Progreso</option>
+        <option value="Tula Centro">Tula Centro</option>
+        <option value="UTT">UTT</option>
+      </select>
+      <button class="btn-top" style="margin-left: auto;" onclick="verVista('vistaPOS')">⬅ Salir</button>
+    </div>
+    
+    <div class="grid-dueno">
+      <div class="card-kpi">
+        <div style="color: #64748b; font-size: 13px;">Venta Total Hoy</div>
+        <div style="font-size: 26px; font-weight: 900; color: #16a34a;" id="kpiTotalVenta">$0</div>
+      </div>
+      <div class="card-kpi">
+        <div style="color: #64748b; font-size: 13px;">💵 Efectivo</div>
+        <div style="font-size: 20px; font-weight: bold;" id="kpiEfectivo">$0</div>
+      </div>
+      <div class="card-kpi">
+        <div style="color: #64748b; font-size: 13px;">📱 Transferencias</div>
+        <div style="font-size: 20px; font-weight: bold;" id="kpiTransfer">$0</div>
+      </div>
+      <div class="card-kpi">
+        <div style="color: #64748b; font-size: 13px;">🌮 Total Tacos</div>
+        <div style="font-size: 20px; font-weight: bold;" id="kpiTotalTacos">0</div>
+      </div>
+      <div class="card-kpi">
+        <div style="color: #64748b; font-size: 13px;">🥤 Total Bebidas</div>
+        <div style="font-size: 20px; font-weight: bold;" id="kpiTotalBebidas">0</div>
+      </div>
+    </div>
+
+    <div style="padding: 0 16px; flex: 1; overflow-y: auto;">
+      <h4>Desglose de Ventas Registradas</h4>
+      <div id="listaTicketsDueno" style="display:flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL COBRO CON CAMBIO -->
+  <div id="modalCobro">
+    <div class="modal-box">
+      <h3 style="margin-top: 0;">Cobrar Mesa <span id="mdlMesa"></span></h3>
+      <div style="font-size: 22px; font-weight: bold; margin-bottom: 10px;">Total: $<span id="mdlTotal">0</span></div>
+
+      <div style="display:flex; gap: 8px; margin-bottom: 12px;">
+        <div class="btn-pago activo" id="btnPagoEf" onclick="setMetodo('Efectivo')">💵 Efectivo</div>
+        <div class="btn-pago" id="btnPagoTr" onclick="setMetodo('Transferencia')">📱 Transferencia</div>
+      </div>
+
+      <div id="bloqueEf">
+        <label style="font-size: 12px; font-weight: bold;">Paga con:</label>
+        <input type="number" id="inpPagaCon" style="width:100%; padding:10px; font-size:18px; border:1px solid #cbd5e1; border-radius:8px; margin: 4px 0 10px 0;" oninput="recalcularCambio()">
+        <div style="display:flex; justify-content:space-between; font-size:18px; font-weight:bold; background:#f1f5f9; padding:10px; border-radius:8px;">
+          <span>Cambio:</span>
+          <span style="color:#dc2626;">$<span id="lblCambioMdl">0</span></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 14px;">
+        <button onclick="cerrarCobro()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">Cancelar</button>
+        <button onclick="finalizarTicket()" style="flex: 2; padding: 12px; border-radius: 8px; border: none; background: #16a34a; color: white; font-weight: bold;">🧾 Guardar e Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let mesaSel = 1;
+    let personaSel = 1;
+    let catSel = 'tacos';
+    let personasMesa = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3 };
+    let metodoSel = 'Efectivo';
+    let ventasCargadas = [];
+
+    let mesas = {
+      1: { acumulado: [], pendiente: [], servicio: 'Comer aquí' },
+      2: { acumulado: [], pendiente: [], servicio: 'Comer aquí' },
+      3: { acumulado: [], pendiente: [], servicio: 'Comer aquí' },
+      4: { acumulado: [], pendiente: [], servicio: 'Comer aquí' },
+      5: { acumulado: [], pendiente: [], servicio: 'Comer aquí' },
+      6: { acumulado: [], pendiente: [], servicio: 'Comer aquí' }
+    };
+
+    const carnes = ['Pastor', 'Suadero', 'Chamorro', 'Costilla', 'Longaniza', 'Pollo', 'Bistec'];
+    const catalogo = {
+      tacos: carnes.map(c => ({ nombre: 'Taco ' + c, precio: 16, esComida: true, esTaco: true })),
+      tortas: carnes.map(c => ({ nombre: 'Torta ' + c, precio: 85, esComida: true, esTaco: false })),
+      gringas: carnes.map(c => ({ nombre: 'Gringa ' + c, precio: 85, esComida: true, esTaco: false })),
+      bebidas: [
+        { nombre: 'Coca-Cola', precio: 30, esComida: false, esBebida: true },
+        { nombre: 'Jarritos', precio: 30, esComida: false, esBebida: true },
+        { nombre: 'Boing', precio: 30, esComida: false, esBebida: true },
+        { nombre: 'Agua Mineral', precio: 30, esComida: false, esBebida: true },
+        { nombre: 'Agua Día 1/2 L', precio: 30, esComida: false, esBebida: true },
+        { nombre: 'Agua Día 1 L', precio: 50, esComida: false, esBebida: true }
+      ]
+    };
+
+    function verVista(id) {
+      document.querySelectorAll('.vista-app').forEach(v => v.classList.remove('activa'));
+      document.getElementById(id).classList.add('activa');
+    }
+
+    function pedirClaveDueno() {
+      const pin = prompt('Introduce el PIN de Administrador:');
+      if (pin === '1234') {
+        verVista('vistaDueno');
+        calcularReporteDueno();
+      } else if (pin) {
+        alert('PIN Incorrecto');
+      }
+    }
+
+    function cambiarMesa(num, btn) {
+      mesaSel = num;
+      personaSel = 1;
+      document.querySelectorAll('.top-bar .btn-top').forEach(b => {
+        if(b.innerText.startsWith('M')) b.classList.remove('mesa-activa');
+      });
+      btn.classList.add('mesa-activa');
+      document.getElementById('lblMesaNum').innerText = num;
+      setServicio(mesas[num].servicio);
+      renderPersonas();
+      renderizarTodo();
+    }
+
+    function setServicio(tipo) {
+      mesas[mesaSel].servicio = tipo;
+      document.getElementById('btnComer').classList.toggle('activo', tipo === 'Comer aquí');
+      document.getElementById('btnLlevar').classList.toggle('activo', tipo === 'Para llevar');
+    }
+
+    function renderPersonas() {
+      const cont = document.getElementById('cajaBtnPersonas');
+      cont.innerHTML = '';
+      for(let i = 1; i <= personasMesa[mesaSel]; i++) {
+        cont.innerHTML += `<button class="btn-p ${personaSel === i ? 'activa' : ''}" onclick="selPersona(${i})">P${i}</button>`;
+      }
+    }
+
+    function selPersona(num) {
+      personaSel = num;
+      renderPersonas();
+      renderCatalogo();
+    }
+
+    function sumarPersona() {
+      personasMesa[mesaSel] += 1;
+      personaSel = personasMesa[mesaSel];
+      renderPersonas();
+      renderCatalogo();
+    }
+
+    function setCat(cat, btn) {
+      catSel = cat;
+      document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('activa'));
+      btn.classList.add('activa');
+      renderCatalogo();
+    }
+
+    function renderCatalogo() {
+      const cont = document.getElementById('listaArticulos');
+      cont.innerHTML = '';
+      catalogo[catSel].forEach(item => {
+        let count = mesas[mesaSel].pendiente
+          .filter(p => p.nombre === item.nombre && p.persona === personaSel)
+          .reduce((sum, p) => sum + p.cantidad, 0);
+
+        cont.innerHTML += `
+          <div class="card-articulo">
+            <div>
+              <div style="font-weight: bold; font-size: 15px;">${item.nombre}</div>
+              <div style="color: #16a34a; font-weight: bold;">$${item.precio}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-cant" onclick="sumarItem('${item.nombre}', ${item.precio}, ${item.esComida}, -1)">−</button>
+              <span style="font-weight: bold; font-size: 16px; min-width: 20px; text-align: center;">${count}</span>
+              <button class="btn-cant" onclick="sumarItem('${item.nombre}', ${item.precio}, ${item.esComida}, 1)">+</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function sumarItem(nombre, precio, esComida, cambio) {
+      let pend = mesas[mesaSel].pendiente;
+      let item = pend.find(p => p.nombre === nombre && p.persona === personaSel);
+
+      if (!item && cambio > 0) {
+        pend.push({
+          nombre, precio, cantidad: 1, persona: personaSel, esComida,
+          verdura: esComida ? 'Con todo' : null
+        });
+      } else if (item) {
+        item.cantidad += cambio;
+        if (item.cantidad <= 0) {
+          mesas[mesaSel].pendiente = pend.filter(p => p !== item);
+        }
+      }
+      renderizarTodo();
+    }
+
+    function setVerduraItem(idx, tipo) {
+      mesas[mesaSel].pendiente[idx].verdura = tipo;
+      renderizarTodo();
+    }
+
+    function renderizarTodo() {
+      renderCatalogo();
+
+      // Pendientes con verdura debajo
+      const pendBox = document.getElementById('cajaPendiente');
+      const items = mesas[mesaSel].pendiente;
+      if (items.length === 0) {
+        pendBox.innerHTML = '<div style="color: #94a3b8; font-size: 12px;">Agrega productos y después elige verdura.</div>';
+      } else {
+        pendBox.innerHTML = '';
+        items.forEach((p, idx) => {
+          let vHtml = '';
+          if (p.esComida) {
+            const opts = ['Con todo', 'Solo cilantro', 'Solo cebolla', 'Sin verdura'];
+            vHtml = `
+              <div class="verduras-opciones">
+                ${opts.map(o => `
+                  <button class="btn-v-opt ${p.verdura === o ? 'sel' : ''}" onclick="setVerduraItem(${idx}, '${o}')">${o}</button>
+                `).join('')}
+              </div>
+            `;
+          }
+          pendBox.innerHTML += `
+            <div class="fila-pendiente">
+              <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px;">
+                <span>P${p.persona}: ${p.cantidad}x ${p.nombre}</span>
+                <span>$${p.precio * p.cantidad}</span>
+              </div>
+              ${vHtml}
+            </div>
+          `;
+        });
+      }
+
+      // Historial
+      const histBox = document.getElementById('cajaAcumulada');
+      histBox.innerHTML = '';
+      let total = 0;
+      mesas[mesaSel].acumulado.forEach(p => {
+        let sub = p.precio * p.cantidad;
+        total += sub;
+        histBox.innerHTML += `
+          <div style="display:flex; justify-content:space-between; font-size:13px; padding:3px 0;">
+            <span>${p.cantidad}x ${p.nombre} [P${p.persona}] ${p.verdura ? `(${p.verdura})` : ''}</span>
+            <span>$${sub}</span>
+          </div>
+        `;
+      });
+
+      document.getElementById('lblTotalMesa').innerText = total;
+
+      document.querySelectorAll('.top-bar .btn-top').forEach(btn => {
+        if (btn.innerText.startsWith('M')) {
+          let num = parseInt(btn.innerText.replace('M', ''));
+          if (mesas[num].acumulado.length > 0) btn.classList.add('con-cuenta');
+          else btn.classList.remove('con-cuenta');
+        }
+      });
+    }
+
+    // MANDAR A COCINA (NUBE FIREBASE)
+    async function enviarComandaCocina() {
+      const items = mesas[mesaSel].pendiente;
+      if (items.length === 0) return alert('No hay artículos pendientes para enviar.');
+
+      const sucursal = document.getElementById('sucursalPOS').value;
+
+      // Guardar en Firestore para la TV
+      if (window.db) {
+        try {
+          await window.fsAddDoc(window.fsCollection(window.db, "comandas_cocina"), {
+            sucursal,
+            mesa: mesaSel,
+            servicio: mesas[mesaSel].servicio,
+            items: items,
+            fecha: new Date().toISOString()
+          });
+        } catch(e) {
+          console.error("Error nube TV", e);
+        }
+      }
+
+      // Pasar a la cuenta acumulada
+      items.forEach(p => {
+        let exist = mesas[mesaSel].acumulado.find(a => 
+          a.nombre === p.nombre && a.persona === p.persona && a.verdura === p.verdura
+        );
+        if (exist) exist.cantidad += p.cantidad;
+        else mesas[mesaSel].acumulado.push({ ...p });
+      });
+
+      mesas[mesaSel].pendiente = [];
+      alert(`¡Comanda enviada a TV Cocina de ${sucursal}!`);
+      renderizarTodo();
+    }
+
+    // COBRO
+    function abrirCobro() {
+      const tot = document.getElementById('lblTotalMesa').innerText;
+      if (tot === '0') return alert('No hay nada por cobrar.');
+      document.getElementById('mdlMesa').innerText = mesaSel;
+      document.getElementById('mdlTotal').innerText = tot;
+      document.getElementById('inpPagaCon').value = '';
+      document.getElementById('lblCambioMdl').innerText = '0';
+      setMetodo('Efectivo');
+      document.getElementById('modalCobro').style.display = 'flex';
+    }
+
+    function cerrarCobro() {
+      document.getElementById('modalCobro').style.display = 'none';
+    }
+
+    function setMetodo(met) {
+      metodoSel = met;
+      document.getElementById('btnPagoEf').classList.toggle('activo', met === 'Efectivo');
+      document.getElementById('btnPagoTr').classList.toggle('activo', met === 'Transferencia');
+      document.getElementById('bloqueEf').style.display = met === 'Efectivo' ? 'block' : 'none';
+    }
+
+    function recalcularCambio() {
+      const tot = parseFloat(document.getElementById('mdlTotal').innerText) || 0;
+      const pag = parseFloat(document.getElementById('inpPagaCon').value) || 0;
+      const dif = pag - tot;
+      document.getElementById('lblCambioMdl').innerText = dif >= 0 ? dif : 0;
+    }
+
+    async function finalizarTicket() {
+      const total = parseFloat(document.getElementById('mdlTotal').innerText);
+      let pagaCon = total;
+      let cambio = 0;
+
+      if (metodoSel === 'Efectivo') {
+        pagaCon = parseFloat(document.getElementById('inpPagaCon').value) || 0;
+        if (pagaCon < total) return alert('El monto pagado no cubre el total.');
+        cambio = pagaCon - total;
+      }
+
+      const sucursal = document.getElementById('sucursalPOS').value;
+      const items = [...mesas[mesaSel].acumulado];
+
+      // Contadores para el reporte del jefe
+      let totalTacos = 0;
+      let totalBebidas = 0;
+      items.forEach(i => {
+        if (i.nombre.startsWith('Taco')) totalTacos += i.cantidad;
+        if (['Coca-Cola','Jarritos','Boing','Agua Mineral','Agua Día 1/2 L','Agua Día 1 L'].includes(i.nombre)) {
+          totalBebidas += i.cantidad;
+        }
+      });
+
+      // Guardar venta final en Firestore (Para el Dueño)
+      if (window.db) {
+        try {
+          await window.fsAddDoc(window.fsCollection(window.db, "ventas"), {
+            sucursal,
+            mesa: mesaSel,
+            servicio: mesas[mesaSel].servicio,
+            total,
+            metodoPago: metodoSel,
+            pagaCon,
+            cambio,
+            totalTacos,
+            totalBebidas,
+            items,
+            fecha: new Date().toLocaleDateString('es-MX'),
+            hora: new Date().toLocaleTimeString()
+          });
+        } catch(e) {
+          console.error("Error guardando venta", e);
+        }
+      }
+
+      // IMPRIMIR TICKET
+      let ticket = `================================\n        TACOS CASTILLO          \n================================\n`;
+      ticket += `SUCURSAL: ${sucursal.toUpperCase()}\n`;
+      ticket += `SERVICIO: ${mesas[mesaSel].servicio}\n`;
+      ticket += `MESA: ${mesaSel} | HORA: ${new Date().toLocaleTimeString()}\n`;
+      ticket += `--------------------------------\n`;
+      items.forEach(i => {
+        ticket += `${i.cantidad}x ${i.nombre} [P${i.persona}]\n`;
+        if (i.verdura) ticket += `   ↳ ${i.verdura}\n`;
+        ticket += `   Subtotal: $${i.precio * i.cantidad}\n`;
+      });
+      ticket += `--------------------------------\n`;
+      ticket += `TOTAL:              $${total}\n`;
+      ticket += `PAGO:               ${metodoSel.toUpperCase()}\n`;
+      if (metodoSel === 'Efectivo') {
+        ticket += `PAGA CON:           $${pagaCon}\n`;
+        ticket += `CAMBIO:             $${cambio}\n`;
+      }
+      ticket += `================================\n¡GRACIAS POR SU PREFERENCIA!`;
+      alert(ticket);
+
+      // Limpiar mesa
+      mesas[mesaSel].acumulado = [];
+      mesas[mesaSel].pendiente = [];
+      cerrarCobro();
+      renderizarTodo();
+    }
+
+    // MONITOR TV
+    function filtrarTV() {
+      // Filtrado visual instantáneo
+    }
+
+    // INICIAR ESCUCHA EN TIEMPO REAL CON FIREBASE
+    window.addEventListener('load', () => {
+      renderPersonas();
+      renderCatalogo();
+
+      let checkInterval = setInterval(() => {
+        if (window.db) {
+          clearInterval(checkInterval);
+
+          // Escuchar comandas de cocina en vivo
+          window.fsOnSnapshot(window.fsCollection(window.db, "comandas_cocina"), (snap) => {
+            const tv = document.getElementById('tvComandas');
+            const sucFiltro = document.getElementById('sucursalTV').value;
+            tv.innerHTML = '';
+            
+            snap.forEach(doc => {
+              const d = doc.data();
+              if (d.sucursal === sucFiltro) {
+                let htmlItems = d.items.map(i => `<div><b>${i.cantidad}x ${i.nombre}</b> [P${i.persona}] <br><span style="color:#16a34a">${i.verdura || ''}</span></div>`).join('');
+                tv.innerHTML += `
+                  <div class="card-comanda-tv">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:8px;">
+                      <b>Mesa ${d.mesa} (${d.servicio})</b>
+                      <span style="font-size:12px; color:#64748b;">${d.sucursal}</span>
+                    </div>
+                    ${htmlItems}
+                  </div>
+                `;
+              }
+            });
+          });
+
+          // Escuchar ventas para el Dueño
+          window.fsOnSnapshot(window.fsCollection(window.db, "ventas"), (snap) => {
+            ventasCargadas = [];
+            snap.forEach(doc => ventasCargadas.push(doc.data()));
+            calcularReporteDueno();
+          });
+        }
+      }, 500);
+    });
+
+    function calcularReporteDueno() {
+      const suc = document.getElementById('sucursalDueno').value;
+      const filtradas = suc === 'TODAS' ? ventasCargadas : ventasCargadas.filter(v => v.sucursal === suc);
+
+      let totalVenta = 0;
+      let totalEf = 0;
+      let totalTr = 0;
+      let totalTacos = 0;
+      let totalBeb = 0;
+
+      const lista = document.getElementById('listaTicketsDueno');
+      lista.innerHTML = '';
+
+      filtradas.forEach(v => {
+        totalVenta += v.total || 0;
+        if (v.metodoPago === 'Efectivo') totalEf += v.total || 0;
+        if (v.metodoPago === 'Transferencia') totalTr += v.total || 0;
+        totalTacos += v.totalTacos || 0;
+        totalBeb += v.totalBebidas || 0;
+
+        lista.innerHTML += `
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; justify-content:space-between;">
+            <div>
+              <b>${v.sucursal} - Mesa ${v.mesa} (${v.servicio})</b>
+              <div style="font-size:12px; color:#64748b;">${v.hora} | ${v.metodoPago} | ${v.totalTacos} tacos | ${v.totalBebidas} refrescos</div>
+            </div>
+            <div style="font-size:16px; font-weight:bold; color:#16a34a;">$${v.total}</div>
+          </div>
+        `;
+      });
+
+      document.getElementById('kpiTotalVenta').innerText = '$' + totalVenta;
+      document.getElementById('kpiEfectivo').innerText = '$' + totalEf;
+      document.getElementById('kpiTransfer').innerText = '$' + totalTr;
+      document.getElementById('kpiTotalTacos').innerText = totalTacos;
+      document.getElementById('kpiTotalBebidas').innerText = totalBeb;
+    }
+  </script>
+</body>
+</html>
